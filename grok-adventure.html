@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grok Adventure</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        #story {
+            height: 400px;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: white;
+            overflow-y: scroll;
+        }
+        #action {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #api-key {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #loading {
+            display: none;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>Grok Adventure - Like AI Dungeon</h1>
+    <p>Enter your xAI API key below (get one at <a href="https://x.ai/api">https://x.ai/api</a>). This page uses the Grok 4 API to generate interactive stories.</p>
+    <input type="text" id="api-key" placeholder="Enter your xAI API key here">
+    <div id="story"></div>
+    <input type="text" id="action" placeholder="Enter your action...">
+    <button onclick="sendAction()">Do</button>
+    <p id="loading">Generating response...</p>
+
+    <script>
+        let history = [
+            { role: "system", content: "You are a dungeon master in a fantasy adventure game. The player will describe their actions, and you respond by continuing the story, describing what happens next in an engaging, narrative style. Keep responses concise, around 100-200 words. Start the adventure with an initial scene." }
+        ];
+
+        // Start with initial story
+        async function initStory() {
+            const apiKey = document.getElementById('api-key').value.trim();
+            if (!apiKey) {
+                alert('Please enter your API key.');
+                return;
+            }
+            await generateResponse(apiKey, []);
+        }
+
+        async function sendAction() {
+            const apiKey = document.getElementById('api-key').value.trim();
+            if (!apiKey) {
+                alert('Please enter your API key.');
+                return;
+            }
+            const action = document.getElementById('action').value.trim();
+            if (!action) return;
+
+            const storyDiv = document.getElementById('story');
+            storyDiv.innerHTML += `<p><strong>You:</strong> ${action}</p>`;
+            document.getElementById('action').value = '';
+            document.getElementById('loading').style.display = 'block';
+            storyDiv.scrollTop = storyDiv.scrollHeight;
+
+            history.push({ role: "user", content: action });
+            await generateResponse(apiKey, history.slice(-1)); // But actually send full history
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        async function generateResponse(apiKey, additionalMessages) {
+            try {
+                const response = await fetch('https://api.x.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "grok-4",
+                        messages: history,
+                        temperature: 0.8,
+                        max_tokens: 300
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const aiResponse = data.choices[0].message.content.trim();
+
+                const storyDiv = document.getElementById('story');
+                storyDiv.innerHTML += `<p><strong>Grok:</strong> ${aiResponse}</p>`;
+                storyDiv.scrollTop = storyDiv.scrollHeight;
+
+                history.push({ role: "assistant", content: aiResponse });
+            } catch (error) {
+                alert(`Error: ${error.message}. Check your API key and credits.`);
+            }
+        }
+
+        // Initialize the story on load
+        window.onload = () => {
+            sendAction(); // This will trigger the initial system prompt response
+        };
+    </script>
+</body>
+</html>
